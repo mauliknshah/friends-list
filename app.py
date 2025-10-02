@@ -7,6 +7,7 @@ from datetime import datetime
 import json
 import os
 from dotenv import load_dotenv
+import anthropic
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,9 +18,16 @@ CORS(app)
 # Weaviate connection setup
 weaviate_url = os.getenv("WEAVIATE_URL")
 weaviate_key = os.getenv("WEAVIATE_API_KEY")
+anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 
 if not weaviate_url or not weaviate_key:
     raise ValueError("WEAVIATE_URL and WEAVIATE_API_KEY environment variables must be set")
+
+if not anthropic_key:
+    raise ValueError("ANTHROPIC_API_KEY environment variable must be set")
+
+# Initialize Claude client
+claude_client = anthropic.Anthropic(api_key=anthropic_key)
 
 def get_weaviate_client():
     """Create and return Weaviate client"""
@@ -209,8 +217,8 @@ def query_friends():
         if not query:
             return jsonify({'error': 'Query is required'}), 400
         
-        # Simple keyword-based query processing
-        response_data = process_query(client, query)
+        # Use Claude LLM for intelligent query processing
+        response_data = process_query_with_claude(client, query)
         return jsonify(response_data)
     
     except Exception as e:
@@ -218,33 +226,123 @@ def query_friends():
     finally:
         client.close()
 
-def process_query(client, query):
-    """Process natural language queries and return relevant data"""
+def process_query_with_claude(client, query):
+    """Process natural language queries using Claude LLM with event data context"""
     
-    # Get all events for analysis
+    # Get all events, activities, and people data
     event_collection = client.collections.get("Event")
     events_response = event_collection.query.fetch_objects(limit=100)
     events = [event.properties for event in events_response.objects]
     
-    # Query patterns and responses
-    if any(word in query for word in ['who', 'attended', 'went', 'events']):
-        if 'most' in query or 'highest' in query:
-            # Find person who attended most events
-            person_counts = {}
-            for event in events:
-                for person in event['people']:
-                    person_counts[person] = person_counts.get(person, 0) + 1
-            
-            if person_counts:
-                top_person = max(person_counts, key=person_counts.get)
-                return {
-                    'answer': f"{top_person} attended the most events with {person_counts[top_person]} events.",
-                    'type': 'person_stats',
-                    'data': {'person': top_person, 'count': person_counts[top_person]}
-                }
+    activity_collection = client.collections.get("Activity")
+    activities_response = activity_collection.query.fetch_objects(limit=100)
+    activities = [activity.properties for activity in activities_response.objects]
     
-    elif any(word in query for word in ['best', 'friends', 'together']):
-        # Find best friends (most events together)
+    person_collection = client.collections.get("Person")
+    people_response = person_collection.query.fetch_objects(limit=100)
+    people = [person.properties for person in people_response.objects]
+    
+    # Prepare structured data context for Claude
+    data_context = {
+        "events": events,
+        "activities": activities,
+        "people": people
+    }
+    
+    # Create analysis summary for Claude
+    analysis_summary = create_data_analysis(events)
+    
+    # Construct prompt for Claude
+    prompt = f"""You are an AI assistant helping users understand friendship and event data. You have access to data about people, their activities, and events they've attended together.
+
+DATA CONTEXT:
+{json.dumps(data_context, indent=2, default=str)}
+
+ANALYSIS SUMMARY:
+{analysis_summary}
+
+USER QUESTION: "{query}"
+
+Please provide a helpful, conversational response to the user's question based on the data above. Be specific with names, numbers, and details when possible. If you need to calculate relationships or statistics, do so based on the provided data.
+
+Keep your response friendly and informative. Focus on answering the specific question asked."""
+
+    try:
+        # Call Claude API
+        message = claude_client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=300,
+            temperature=0.1,
+            messages=[
+                {
+                    "role": "user", 
+                    "content": prompt
+                }
+            ]
+        )
+        
+        claude_response = message.content[0].text
+        
+        return {
+            'answer': claude_response,
+            'type': 'claude_response',
+            'data': {}
+        }
+        
+    except Exception as e:
+        # Fallback to simple analysis if Claude API fails
+        return fallback_query_analysis(events, query)
+
+def create_data_analysis(events):
+    """Create a summary analysis of the events data for Claude context"""
+    
+    # Count events per person
+    person_counts = {}
+    for event in events:
+        for person in event['people']:
+            person_counts[person] = person_counts.get(person, 0) + 1
+    
+    # Count events per activity
+    activity_counts = {}
+    for event in events:
+        activity = event['activity_name']
+        activity_counts[activity] = activity_counts.get(activity, 0) + 1
+    
+    # Find best friend pairs
+    pair_counts = {}
+    for event in events:
+        people = event['people']
+        for i in range(len(people)):
+            for j in range(i + 1, len(people)):
+                pair = tuple(sorted([people[i], people[j]]))
+                pair_counts[pair] = pair_counts.get(pair, 0) + 1
+    
+    # Get top stats
+    top_person = max(person_counts, key=person_counts.get) if person_counts else None
+    top_activity = max(activity_counts, key=activity_counts.get) if activity_counts else None
+    best_friends = max(pair_counts, key=pair_counts.get) if pair_counts else None
+    
+    best_friends_text = f"{best_friends[0]} & {best_friends[1]} ({pair_counts[best_friends]} events together)" if best_friends else "None calculated"
+    recent_events = sorted([e['name'] for e in events if e.get('date_time')])[-3:] if events else []
+    
+    analysis = f"""
+QUICK STATS:
+- Total events: {len(events)}
+- Total unique people: {len(person_counts)}
+- Total unique activities: {len(activity_counts)}
+- Most active person: {top_person} ({person_counts.get(top_person, 0)} events)
+- Most popular activity: {top_activity} ({activity_counts.get(top_activity, 0)} events)
+- Best friends: {best_friends_text}
+- Recent events: {recent_events}
+"""
+    
+    return analysis
+
+def fallback_query_analysis(events, query):
+    """Fallback analysis if Claude API is unavailable"""
+    query_lower = query.lower()
+    
+    if 'best friends' in query_lower or 'together' in query_lower:
         pair_counts = {}
         for event in events:
             people = event['people']
@@ -257,76 +355,13 @@ def process_query(client, query):
             best_pair = max(pair_counts, key=pair_counts.get)
             return {
                 'answer': f"{best_pair[0]} and {best_pair[1]} are the best friends with {pair_counts[best_pair]} events together.",
-                'type': 'best_friends',
-                'data': {'pair': best_pair, 'count': pair_counts[best_pair]}
+                'type': 'fallback',
+                'data': {}
             }
     
-    elif any(word in query for word in ['activity', 'activities', 'popular']):
-        # Find most popular activity
-        activity_counts = {}
-        for event in events:
-            activity = event['activity_name']
-            activity_counts[activity] = activity_counts.get(activity, 0) + 1
-        
-        if activity_counts:
-            popular_activity = max(activity_counts, key=activity_counts.get)
-            return {
-                'answer': f"{popular_activity} is the most popular activity with {activity_counts[popular_activity]} events.",
-                'type': 'activity_stats',
-                'data': {'activity': popular_activity, 'count': activity_counts[popular_activity]}
-            }
-    
-    elif any(word in query for word in ['when', 'recent', 'last']):
-        # Find recent events
-        if events:
-            recent_event = max(events, key=lambda x: x['date_time'] if x['date_time'] else '')
-            return {
-                'answer': f"The most recent event was '{recent_event['name']}' ({recent_event['activity_name']}) with {', '.join(recent_event['people'])}.",
-                'type': 'recent_event',
-                'data': recent_event
-            }
-    
-    elif any(word in query for word in ['how many', 'count', 'total']):
-        if 'events' in query:
-            return {
-                'answer': f"There are {len(events)} total events in the system.",
-                'type': 'count',
-                'data': {'count': len(events)}
-            }
-        elif 'people' in query:
-            all_people = set()
-            for event in events:
-                all_people.update(event['people'])
-            return {
-                'answer': f"There are {len(all_people)} unique people: {', '.join(sorted(all_people))}.",
-                'type': 'people_count',
-                'data': {'count': len(all_people), 'people': sorted(all_people)}
-            }
-    
-    # Check if query mentions specific person
-    all_people = set()
-    for event in events:
-        all_people.update(event['people'])
-    
-    mentioned_person = None
-    for person in all_people:
-        if person.lower() in query:
-            mentioned_person = person
-            break
-    
-    if mentioned_person:
-        person_events = [e for e in events if mentioned_person in e['people']]
-        activities = [e['activity_name'] for e in person_events]
-        return {
-            'answer': f"{mentioned_person} attended {len(person_events)} events, doing activities like: {', '.join(set(activities))}.",
-            'type': 'person_info',
-            'data': {'person': mentioned_person, 'event_count': len(person_events), 'activities': list(set(activities))}
-        }
-    
-    # Default response
     return {
-        'answer': "I didn't understand your question. Try asking about: 'Who attended the most events?', 'Who are the best friends?', 'What's the most popular activity?', or mention a specific person's name.",
-        'type': 'help',
+        'answer': "I'm having trouble processing your question right now. Please try asking about specific people, activities, or events.",
+        'type': 'fallback',
         'data': {}
     }
 
