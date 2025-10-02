@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, jsonify, render_template_string, request
 from flask_cors import CORS
 import weaviate
 from weaviate.classes.init import Auth
@@ -198,6 +198,138 @@ def get_events_by_person(person_name):
     finally:
         client.close()
 
+@app.route('/api/query', methods=['POST'])
+def query_friends():
+    """Handle natural language queries about friends and events"""
+    client = get_weaviate_client()
+    try:
+        data = request.get_json()
+        query = data.get('query', '').lower().strip()
+        
+        if not query:
+            return jsonify({'error': 'Query is required'}), 400
+        
+        # Simple keyword-based query processing
+        response_data = process_query(client, query)
+        return jsonify(response_data)
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        client.close()
+
+def process_query(client, query):
+    """Process natural language queries and return relevant data"""
+    
+    # Get all events for analysis
+    event_collection = client.collections.get("Event")
+    events_response = event_collection.query.fetch_objects(limit=100)
+    events = [event.properties for event in events_response.objects]
+    
+    # Query patterns and responses
+    if any(word in query for word in ['who', 'attended', 'went', 'events']):
+        if 'most' in query or 'highest' in query:
+            # Find person who attended most events
+            person_counts = {}
+            for event in events:
+                for person in event['people']:
+                    person_counts[person] = person_counts.get(person, 0) + 1
+            
+            if person_counts:
+                top_person = max(person_counts, key=person_counts.get)
+                return {
+                    'answer': f"{top_person} attended the most events with {person_counts[top_person]} events.",
+                    'type': 'person_stats',
+                    'data': {'person': top_person, 'count': person_counts[top_person]}
+                }
+    
+    elif any(word in query for word in ['best', 'friends', 'together']):
+        # Find best friends (most events together)
+        pair_counts = {}
+        for event in events:
+            people = event['people']
+            for i in range(len(people)):
+                for j in range(i + 1, len(people)):
+                    pair = tuple(sorted([people[i], people[j]]))
+                    pair_counts[pair] = pair_counts.get(pair, 0) + 1
+        
+        if pair_counts:
+            best_pair = max(pair_counts, key=pair_counts.get)
+            return {
+                'answer': f"{best_pair[0]} and {best_pair[1]} are the best friends with {pair_counts[best_pair]} events together.",
+                'type': 'best_friends',
+                'data': {'pair': best_pair, 'count': pair_counts[best_pair]}
+            }
+    
+    elif any(word in query for word in ['activity', 'activities', 'popular']):
+        # Find most popular activity
+        activity_counts = {}
+        for event in events:
+            activity = event['activity_name']
+            activity_counts[activity] = activity_counts.get(activity, 0) + 1
+        
+        if activity_counts:
+            popular_activity = max(activity_counts, key=activity_counts.get)
+            return {
+                'answer': f"{popular_activity} is the most popular activity with {activity_counts[popular_activity]} events.",
+                'type': 'activity_stats',
+                'data': {'activity': popular_activity, 'count': activity_counts[popular_activity]}
+            }
+    
+    elif any(word in query for word in ['when', 'recent', 'last']):
+        # Find recent events
+        if events:
+            recent_event = max(events, key=lambda x: x['date_time'] if x['date_time'] else '')
+            return {
+                'answer': f"The most recent event was '{recent_event['name']}' ({recent_event['activity_name']}) with {', '.join(recent_event['people'])}.",
+                'type': 'recent_event',
+                'data': recent_event
+            }
+    
+    elif any(word in query for word in ['how many', 'count', 'total']):
+        if 'events' in query:
+            return {
+                'answer': f"There are {len(events)} total events in the system.",
+                'type': 'count',
+                'data': {'count': len(events)}
+            }
+        elif 'people' in query:
+            all_people = set()
+            for event in events:
+                all_people.update(event['people'])
+            return {
+                'answer': f"There are {len(all_people)} unique people: {', '.join(sorted(all_people))}.",
+                'type': 'people_count',
+                'data': {'count': len(all_people), 'people': sorted(all_people)}
+            }
+    
+    # Check if query mentions specific person
+    all_people = set()
+    for event in events:
+        all_people.update(event['people'])
+    
+    mentioned_person = None
+    for person in all_people:
+        if person.lower() in query:
+            mentioned_person = person
+            break
+    
+    if mentioned_person:
+        person_events = [e for e in events if mentioned_person in e['people']]
+        activities = [e['activity_name'] for e in person_events]
+        return {
+            'answer': f"{mentioned_person} attended {len(person_events)} events, doing activities like: {', '.join(set(activities))}.",
+            'type': 'person_info',
+            'data': {'person': mentioned_person, 'event_count': len(person_events), 'activities': list(set(activities))}
+        }
+    
+    # Default response
+    return {
+        'answer': "I didn't understand your question. Try asking about: 'Who attended the most events?', 'Who are the best friends?', 'What's the most popular activity?', or mention a specific person's name.",
+        'type': 'help',
+        'data': {}
+    }
+
 # HTML Template
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
@@ -269,6 +401,90 @@ HTML_TEMPLATE = '''
 
         .sidebar-content {
             line-height: 1.6;
+        }
+
+        .query-section {
+            margin-bottom: 3rem;
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .query-section h2 {
+            color: #333;
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+            text-align: center;
+        }
+
+        .query-box {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        #query-input {
+            flex: 1;
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        #query-input:focus {
+            border-color: #667eea;
+        }
+
+        #query-button {
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        #query-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        #query-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #query-response {
+            min-height: 60px;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            display: none;
+        }
+
+        #query-response.show {
+            display: block;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .query-answer {
+            color: #333;
+            font-weight: 500;
         }
 
         .best-friends-section {
@@ -531,6 +747,15 @@ HTML_TEMPLATE = '''
 
     <div class="container">
         <div class="main-content">
+            <div class="query-section">
+                <h2>💬 Ask About Friends</h2>
+                <div class="query-box">
+                    <input type="text" id="query-input" placeholder="Ask me anything! e.g., 'Who are the best friends?' or 'Who attended the most events?'">
+                    <button id="query-button">Ask</button>
+                </div>
+                <div id="query-response"></div>
+            </div>
+            
             <div class="best-friends-section">
                 <h2>🏆 Best Friends List</h2>
                 <div id="best-friends-container">
@@ -720,10 +945,66 @@ HTML_TEMPLATE = '''
             });
         }
 
+        async function askQuery() {
+            const queryInput = document.getElementById('query-input');
+            const queryButton = document.getElementById('query-button');
+            const responseDiv = document.getElementById('query-response');
+            
+            const query = queryInput.value.trim();
+            if (!query) {
+                responseDiv.innerHTML = '<div class="query-answer">Please enter a question!</div>';
+                responseDiv.classList.add('show');
+                return;
+            }
+
+            // Disable button and show loading
+            queryButton.disabled = true;
+            queryButton.textContent = 'Thinking...';
+            responseDiv.innerHTML = '<div class="query-answer">🤔 Let me think about that...</div>';
+            responseDiv.classList.add('show');
+
+            try {
+                const response = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: query })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.innerHTML = `<div class="query-answer">💡 ${data.answer}</div>`;
+                } else {
+                    responseDiv.innerHTML = `<div class="query-answer" style="color: #e74c3c;">❌ Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                responseDiv.innerHTML = `<div class="query-answer" style="color: #e74c3c;">❌ Error: ${error.message}</div>`;
+            } finally {
+                // Re-enable button
+                queryButton.disabled = false;
+                queryButton.textContent = 'Ask';
+            }
+        }
+
         // Load data when page loads
         document.addEventListener('DOMContentLoaded', function() {
             loadBestFriends();
             loadEvents();
+            
+            // Set up query functionality
+            const queryButton = document.getElementById('query-button');
+            const queryInput = document.getElementById('query-input');
+            
+            queryButton.addEventListener('click', askQuery);
+            
+            // Allow Enter key to submit query
+            queryInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    askQuery();
+                }
+            });
         });
     </script>
 </body>
