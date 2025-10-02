@@ -1,0 +1,122 @@
+[
+  {
+    "name": "Salsa at 550",
+    "activity": "Salsa Dancing",
+    "date_time": "2024-10-04T20:00:00",
+    "people": ["Alice Johnson", "Michael Chen", "Sarah Williams", "David Rodriguez"]
+  },
+  {
+    "name": "Morning Yoga Session",
+    "activity": "Yoga",
+    "date_time": "2024-10-05T07:00:00",
+    "people": ["Emma Thompson", "Lisa Anderson", "Maria Garcia"]
+  },
+  {
+    "name": "Indoor Rock Challenge",
+    "activity": "Rock Climbing",
+    "date_time": "2024-10-05T18:30:00",
+    "people": ["James Patterson", "Robert Kim", "Thomas Brown", "Michael Chen", "David Rodriguez"]
+  },
+  {
+    "name": "Sunset Swimming",
+    "activity": "Swimming",
+    "date_time": "2024-10-06T19:00:00",
+    "people": ["Sarah Williams", "Emma Thompson", "Alice Johnson"]
+  },
+  {
+    "name": "Mountain Trail Adventure",
+    "activity": "Hiking",
+    "date_time": "2024-10-06T08:00:00",
+    "people": ["James Patterson", "Robert Kim", "Lisa Anderson", "Thomas Brown", "Michael Chen", "David Rodriguez"]
+  },
+  {
+    "name": "Creative Pottery Workshop",
+    "activity": "Pottery",
+    "date_time": "2024-10-07T14:00:00",
+    "people": ["Maria Garcia", "Emma Thompson", "Sarah Williams", "Alice Johnson"]
+  },
+  {
+    "name": "Street Basketball Tournament",
+    "activity": "Basketball",
+    "date_time": "2024-10-07T17:00:00",
+    "people": ["Michael Chen", "David Rodriguez", "James Patterson", "Robert Kim", "Thomas Brown"]
+  },
+  {
+    "name": "Peaceful Garden Meditation",
+    "activity": "Meditation",
+    "date_time": "2024-10-08T06:30:00",
+    "people": ["Lisa Anderson", "Maria Garcia", "Emma Thompson"]
+  },
+  {
+    "name": "Italian Cooking Masterclass",
+    "activity": "Cooking Class",
+    "date_time": "2024-10-08T19:30:00",
+    "people": ["Alice Johnson", "Sarah Williams", "Maria Garcia", "Emma Thompson", "Lisa Anderson"]
+  },
+  {
+    "name": "Lake Kayaking Adventure",
+    "activity": "Kayaking",
+    "date_time": "2024-10-09T10:00:00",
+    "people": ["James Patterson", "Robert Kim", "Michael Chen", "David Rodriguez"]
+  },
+  {
+    "name": "Latin Dance Night",
+    "activity": "Salsa Dancing",
+    "date_time": "2024-10-10T21:00:00",
+    "people": ["Alice Johnson", "Sarah Williams", "Emma Thompson", "Maria Garcia", "Lisa Anderson"]
+  },
+  {
+    "name": "Power Yoga Flow",
+    "activity": "Yoga",
+    "date_time": "2024-10-11T18:00:00",
+    "people": ["Michael Chen", "David Rodriguez", "Thomas Brown", "James Patterson"]
+  },
+  {
+    "name": "Bouldering Session",
+    "activity": "Rock Climbing",
+    "date_time": "2024-10-11T16:00:00",
+    "people": ["Robert Kim", "Lisa Anderson", "Sarah Williams"]
+  },
+  {
+    "name": "Lap Swimming Competition",
+    "activity": "Swimming",
+    "date_time": "2024-10-12T08:00:00",
+    "people": ["Michael Chen", "James Patterson", "Thomas Brown", "Alice Johnson", "David Rodriguez"]
+  },
+  {
+    "name": "Forest Trail Exploration",
+    "activity": "Hiking",
+    "date_time": "2024-10-12T09:00:00",
+    "people": ["Emma Thompson", "Maria Garcia", "Robert Kim", "Lisa Anderson"]
+  },
+  {
+    "name": "Ceramic Art Workshop",
+    "activity": "Pottery",
+    "date_time": "2024-10-13T13:00:00",
+    "people": ["Sarah Williams", "Alice Johnson", "Emma Thompson"]
+  },
+  {
+    "name": "3-on-3 Basketball Match",
+    "activity": "Basketball",
+    "date_time": "2024-10-13T16:30:00",
+    "people": ["David Rodriguez", "Thomas Brown", "Robert Kim", "James Patterson", "Michael Chen", "Lisa Anderson"]
+  },
+  {
+    "name": "Mindfulness Meditation Retreat",
+    "activity": "Meditation",
+    "date_time": "2024-10-14T07:00:00",
+    "people": ["Maria Garcia", "Emma Thompson", "Alice Johnson", "Sarah Williams"]
+  },
+  {
+    "name": "French Cuisine Workshop",
+    "activity": "Cooking Class",
+    "date_time": "2024-10-14T18:30:00",
+    "people": ["James Patterson", "Robert Kim", "Thomas Brown", "Michael Chen"]
+  },
+  {
+    "name": "River Kayaking Expedition",
+    "activity": "Kayaking",
+    "date_time": "2024-10-15T11:00:00",
+    "people": ["David Rodriguez", "Lisa Anderson", "Sarah Williams", "Alice Johnson", "Emma Thompson"]
+  }
+]
