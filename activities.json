@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Salsa Dancing",
+    "type": "dancing",
+    "indoor": true,
+    "outdoor": true
+  },
+  {
+    "name": "Yoga",
+    "type": "fitness",
+    "indoor": true,
+    "outdoor": true
+  },
+  {
+    "name": "Rock Climbing",
+    "type": "adventure",
+    "indoor": true,
+    "outdoor": true
+  },
+  {
+    "name": "Swimming",
+    "type": "fitness",
+    "indoor": true,
+    "outdoor": true
+  },
+  {
+    "name": "Hiking",
+    "type": "outdoor recreation",
+    "indoor": false,
+    "outdoor": true
+  },
+  {
+    "name": "Pottery",
+    "type": "crafts",
+    "indoor": true,
+    "outdoor": false
+  },
+  {
+    "name": "Basketball",
+    "type": "sports",
+    "indoor": true,
+    "outdoor": true
+  },
+  {
+    "name": "Meditation",
+    "type": "wellness",
+    "indoor": true,
+    "outdoor": true
+  },
+  {
+    "name": "Cooking Class",
+    "type": "education",
+    "indoor": true,
+    "outdoor": false
+  },
+  {
+    "name": "Kayaking",
+    "type": "water sports",
+    "indoor": false,
+    "outdoor": true
+  }
+]
